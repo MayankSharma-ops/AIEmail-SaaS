@@ -32,7 +32,7 @@ Follow the steps below to install and setup the project:
    Open your terminal and run the following command:
 
    ```bash
-   git clone
+   git clone https://github.com/MayankSharma-ops/AIEmail-SaaS.git
    ```
 
 2. **Navigate to the project directory**
