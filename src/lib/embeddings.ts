@@ -1,27 +1,29 @@
 import { embed } from "ai";
-import { geminiEmbeddingModel, GEMINI_EMBEDDING_MODEL_ID } from "@/lib/gemini";
-
-const ORAMA_VECTOR_DIMENSION = 768;
+import {
+    geminiEmbeddingModel,
+    GEMINI_EMBEDDING_DIMENSION,
+    GEMINI_EMBEDDING_MODEL_ID,
+} from "@/lib/gemini";
 
 function normalizeEmbedding(embedding: number[]) {
-    if (embedding.length === ORAMA_VECTOR_DIMENSION) {
+    if (embedding.length === GEMINI_EMBEDDING_DIMENSION) {
         return embedding;
     }
 
-    if (embedding.length > ORAMA_VECTOR_DIMENSION) {
-        return embedding.slice(0, ORAMA_VECTOR_DIMENSION);
+    if (embedding.length > GEMINI_EMBEDDING_DIMENSION) {
+        return embedding.slice(0, GEMINI_EMBEDDING_DIMENSION);
     }
 
-    return [...embedding, ...new Array(ORAMA_VECTOR_DIMENSION - embedding.length).fill(0)];
+    return [...embedding, ...new Array(GEMINI_EMBEDDING_DIMENSION - embedding.length).fill(0)];
 }
 
 function buildDeterministicFallbackEmbedding(text: string) {
-    const vector = new Array(ORAMA_VECTOR_DIMENSION).fill(0);
+    const vector = new Array(GEMINI_EMBEDDING_DIMENSION).fill(0);
     const cleanText = text.replace(/\s+/g, " ").trim();
 
     for (let i = 0; i < cleanText.length; i++) {
         const code = cleanText.charCodeAt(i);
-        vector[i % ORAMA_VECTOR_DIMENSION] += code / 255;
+        vector[i % GEMINI_EMBEDDING_DIMENSION] += code / 255;
     }
 
     return vector;
