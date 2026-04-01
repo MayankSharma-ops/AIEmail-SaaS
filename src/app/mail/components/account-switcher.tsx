@@ -13,7 +13,7 @@ import {
 import { api, type RouterOutputs } from "@/trpc/react"
 import { useLocalStorage } from "usehooks-ts"
 import { Plus } from "lucide-react"
-import { getAurinkoAuthorizationUrl } from "@/lib/aurinko"
+import { getGoogleAuthorizationUrl } from "@/lib/google"
 import { toast } from "sonner"
 
 interface AccountSwitcherProps {
@@ -36,7 +36,7 @@ export function AccountSwitcher({
           label: 'Add account',
           onClick: async () => {
             try {
-              const url = await getAurinkoAuthorizationUrl('Google')
+              const url = await getGoogleAuthorizationUrl()
               window.location.href = url
             } catch (error) {
               toast.error((error as Error).message)
@@ -86,7 +86,7 @@ export function AccountSwitcher({
           ))}
           <div onClick={async (e) => {
             try {
-              const url = await getAurinkoAuthorizationUrl('Google')
+              const url = await getGoogleAuthorizationUrl()
               window.location.href = url
             } catch (error) {
               toast.error((error as Error).message)

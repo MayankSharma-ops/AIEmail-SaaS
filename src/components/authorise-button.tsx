@@ -1,6 +1,6 @@
 'use client'
 import { Button } from "@/components/ui/button"
-import { getAurinkoAuthorizationUrl } from "@/lib/aurinko"
+import { getGoogleAuthorizationUrl } from "@/lib/google"
 import { api } from "@/trpc/react"
 import { useLocalStorage } from "usehooks-ts"
 
@@ -15,7 +15,7 @@ export default function AuthoriseButton() {
             Sync Emails
         </Button>
         <Button size='sm' variant={'outline'} onClick={async () => {
-            const url = await getAurinkoAuthorizationUrl('Google')
+            const url = await getGoogleAuthorizationUrl()
             window.location.href = url
         }}>
             Authorize Email

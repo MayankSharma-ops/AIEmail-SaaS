@@ -3,7 +3,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import Account from "@/lib/account";
 import { syncEmailsToDatabase } from "@/lib/sync-to-db";
 import { db } from "@/server/db";
-import { getEmailDetails } from "@/lib/aurinko";
+import { getAccountDetails } from "@/lib/google";
 import type { Prisma } from "@prisma/client";
 import { emailAddressSchema } from "@/lib/types";
 import { FREE_CREDITS_PER_DAY } from "@/app/constants";
@@ -271,8 +271,8 @@ export const mailRouter = createTRPCRouter({
         emailId: z.string(),
         accountId: z.string()
     })).query(async ({ ctx, input }) => {
-        const account = await authoriseAccountAccess(input.accountId, ctx.auth.userId)
-        return await getEmailDetails(account.token, input.emailId)
+        // Mock getEmailDetails since we now sync everything to DB
+        return null;
     }),
     sendEmail: protectedProcedure.input(z.object({
         accountId: z.string(),

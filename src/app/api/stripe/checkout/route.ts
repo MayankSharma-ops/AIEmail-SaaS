@@ -1,5 +1,6 @@
 import type Stripe from 'stripe';
 import { type NextRequest, NextResponse } from 'next/server';
+import { clerkClient } from '@clerk/nextjs/server';
 import { stripe } from '@/lib/stripe';
 import { db } from '@/server/db';
 
@@ -46,11 +47,31 @@ export async function GET(request: NextRequest) {
             throw new Error("No user ID found in session's client_reference_id.");
         }
 
-        const user = await db.user.findUnique({
+        let user = await db.user.findUnique({
             where: { id: userId }
         })
         if (!user) {
-            throw new Error('User not found');
+            console.log('User not found in db, creating one...')
+            const client = await clerkClient()
+            const clerkUser = await client.users.getUser(userId)
+            if (!clerkUser) throw new Error('User not found in Clerk')
+
+            user = await db.user.upsert({
+                where: { id: clerkUser.id },
+                update: {
+                    emailAddress: clerkUser.emailAddresses[0]?.emailAddress ?? "",
+                    firstName: clerkUser.firstName,
+                    lastName: clerkUser.lastName,
+                    imageUrl: clerkUser.imageUrl
+                },
+                create: {
+                    id: clerkUser.id,
+                    emailAddress: clerkUser.emailAddresses[0]?.emailAddress ?? "",
+                    firstName: clerkUser.firstName,
+                    lastName: clerkUser.lastName,
+                    imageUrl: clerkUser.imageUrl
+                }
+            })
         }
 
         const stripeSubscription = await db.stripeSubscription.create({
@@ -59,7 +80,8 @@ export async function GET(request: NextRequest) {
                 productId: productId,
                 priceId: plan.id,
                 customerId: customerId,
-                userId
+                userId,
+                currentPeriodEnd: new Date(subscription.current_period_end * 1000)
             }
         })
 
