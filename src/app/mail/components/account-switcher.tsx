@@ -33,7 +33,8 @@ export function AccountSwitcher({
 
   React.useEffect(() => {
     if (accounts && accounts.length > 0) {
-      if (accountId) return
+      const hasValidAccount = accounts.some((account) => account.id === accountId)
+      if (hasValidAccount) return
       setAccountId(accounts[0]!.id)
     } else if (accounts && accounts.length === 0) {
       toast('Link an account to continue', {
@@ -50,14 +51,14 @@ export function AccountSwitcher({
         },
       })
     }
-  }, [accounts])
+  }, [accounts, accountId, setAccountId])
 
 
 
   if (!isMounted || !accounts) return <></>
   return (
     <div className="items-center gap-2 flex w-full">
-      <Select defaultValue={accountId} onValueChange={setAccountId}>
+      <Select value={accountId} onValueChange={setAccountId}>
         <SelectTrigger
           className={cn(
             "flex w-full flex-1 items-center gap-2 [&>span]:line-clamp-1 [&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:gap-1 [&>span]:truncate [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0",

@@ -10,44 +10,40 @@ async function syncEmailsToDatabase(emails: EmailMessage[], accountId: string) {
     console.log(`Syncing ${emails.length} emails to database`);
     const limit = pLimit(10); // Process up to 10 emails concurrently
 
-    const oramaClient = new OramaManager(accountId)
-    oramaClient.initialize()
-
-    try {
-
-        async function syncToOrama() {
-            await Promise.all(emails.map(email => {
-                return limit(async () => {
-                    const body = turndown.turndown(email.body ?? email.bodySnippet ?? '')
-                    const payload = `From: ${email.from.name} <${email.from.address}>\nTo: ${email.to.map(t => `${t.name} <${t.address}>`).join(', ')}\nSubject: ${email.subject}\nBody: ${body}\n SentAt: ${new Date(email.sentAt).toLocaleString()}`
-                    const bodyEmbedding = await getEmbeddings(payload);
-                    await oramaClient.insert({
-                        title: email.subject,
-                        body: body,
-                        rawBody: email.bodySnippet ?? '',
-                        from: `${email.from.name} <${email.from.address}>`,
-                        to: email.to.map(t => `${t.name} <${t.address}>`),
-                        sentAt: new Date(email.sentAt).toLocaleString(),
-                        embeddings: bodyEmbedding,
-                        threadId: email.threadId
-                    })
-                })
-            }))
-        }
-
-        async function syncToDB() {
-            for (const [index, email] of emails.entries()) {
-                await upsertEmail(email, index, accountId);
-            }
-        }
-
-        await Promise.all([syncToOrama(), syncToDB()])
-
-        await oramaClient.saveIndex()
-    } catch (error) {
-        console.log('error', error)
+    for (const [index, email] of emails.entries()) {
+        await upsertEmail(email, index, accountId);
     }
 
+    if (emails.length === 0) {
+        return;
+    }
+
+    const oramaClient = new OramaManager(accountId);
+
+    try {
+        await oramaClient.initialize();
+
+        await Promise.all(emails.map(email => {
+            return limit(async () => {
+                const body = turndown.turndown(email.body ?? email.bodySnippet ?? '');
+                const payload = `From: ${email.from.name} <${email.from.address}>\nTo: ${email.to.map(t => `${t.name} <${t.address}>`).join(', ')}\nSubject: ${email.subject}\nBody: ${body}\n SentAt: ${new Date(email.sentAt).toLocaleString()}`;
+                const bodyEmbedding = await getEmbeddings(payload);
+
+                await oramaClient.insert({
+                    title: email.subject,
+                    body: body,
+                    rawBody: email.bodySnippet ?? '',
+                    from: `${email.from.name} <${email.from.address}>`,
+                    to: email.to.map(t => `${t.name} <${t.address}>`),
+                    sentAt: new Date(email.sentAt).toLocaleString(),
+                    embeddings: bodyEmbedding,
+                    threadId: email.threadId
+                });
+            });
+        }));
+    } catch (error) {
+        console.log('Failed to sync emails to Orama', error);
+    }
 }
 
 async function upsertEmail(email: EmailMessage, index: number, accountId: string) {

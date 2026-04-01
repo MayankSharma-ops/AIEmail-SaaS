@@ -2,7 +2,6 @@ import { getAccountDetails, getGoogleToken } from "@/lib/google";
 import { waitUntil } from '@vercel/functions';
 import { db } from "@/server/db";
 import { auth } from "@clerk/nextjs/server";
-import axios from "axios";
 import { type NextRequest, NextResponse } from "next/server";
 
 export const GET = async (req: NextRequest) => {
@@ -41,11 +40,19 @@ export const GET = async (req: NextRequest) => {
         }
     });
 
+    const initialSyncUrl = new URL('/api/initial-sync', req.nextUrl.origin);
     waitUntil(
-        axios.post(`${process.env.NEXT_PUBLIC_URL}/api/initial-sync`, { accountId: accountId, userId }).then((res) => {
-            console.log(res.data);
-        }).catch((err) => {
-            console.log(err.response?.data);
+        fetch(initialSyncUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ accountId, userId }),
+        }).then(async (res) => {
+            const payload = await res.json().catch(() => null);
+            console.log(payload);
+        }).catch((error) => {
+            console.log(error);
         })
     );
 
