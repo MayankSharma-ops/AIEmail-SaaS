@@ -15,7 +15,7 @@ export const authoriseAccountAccess = async (accountId: string, userId: string) 
             userId: userId,
         },
         select: {
-            id: true, emailAddress: true, name: true, token: true
+            id: true, emailAddress: true, name: true, token: true, nextDeltaToken: true
         }
     })
     if (!account) throw new Error("Invalid token")
@@ -60,9 +60,15 @@ export const mailRouter = createTRPCRouter({
         } else if (input.tab === "drafts") {
             filter = draftFilter(account.id)
         }
-        return await ctx.db.thread.count({
+        const count = await ctx.db.thread.count({
             where: filter
         })
+        console.log('[mail.getNumThreads]', {
+            accountId: account.id,
+            tab: input.tab,
+            count,
+        })
+        return count
     }),
     getThreads: protectedProcedure.input(z.object({
         accountId: z.string(),
@@ -107,6 +113,12 @@ export const mailRouter = createTRPCRouter({
             orderBy: {
                 lastMessageDate: "desc"
             }
+        })
+        console.log('[mail.getThreads]', {
+            accountId: account.id,
+            tab: input.tab,
+            done: input.done,
+            threadCount: threads.length,
         })
         return threads
     }),
@@ -335,7 +347,19 @@ export const mailRouter = createTRPCRouter({
         accountId: z.string()
     })).query(async ({ ctx, input }) => {
         const account = await authoriseAccountAccess(input.accountId, ctx.auth.userId)
-        return account
+        const threadCount = await ctx.db.thread.count({
+            where: {
+                accountId: account.id,
+            }
+        })
+
+        return {
+            id: account.id,
+            emailAddress: account.emailAddress,
+            name: account.name,
+            nextDeltaToken: account.nextDeltaToken ?? null,
+            threadCount,
+        }
     }),
     getChatbotInteraction: protectedProcedure.query(async ({ ctx }) => {
         const chatbotInteraction = await ctx.db.chatbotInteraction.findUnique({

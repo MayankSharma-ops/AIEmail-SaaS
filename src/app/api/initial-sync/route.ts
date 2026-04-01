@@ -8,8 +8,12 @@ export const maxDuration = 300
 
 export const POST = async (req: NextRequest) => {
     const body = await req.json()
-    const { accountId, userId } = body
+    const { userId: bodyUserId, accountId } = body
+    const { userId: authUserId } = await auth()
+    const userId = authUserId ?? bodyUserId
     if (!accountId || !userId) return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
+
+    console.log('[initial-sync] start', { accountId, userId })
 
     const dbAccount = await db.account.findFirst({
         where: {
@@ -25,6 +29,7 @@ export const POST = async (req: NextRequest) => {
     if (!response) return NextResponse.json({ error: "FAILED_TO_SYNC" }, { status: 500 });
 
     const { deltaToken, emails } = response
+    console.log('[initial-sync] fetched emails', { accountId, emailCount: emails.length, deltaToken })
 
     await syncEmailsToDatabase(emails, accountId)
 
@@ -36,7 +41,7 @@ export const POST = async (req: NextRequest) => {
             nextDeltaToken: deltaToken,
         },
     });
-    console.log('sync complete', deltaToken)
+    console.log('[initial-sync] complete', { accountId, deltaToken })
     return NextResponse.json({ success: true, deltaToken }, { status: 200 });
 
 }

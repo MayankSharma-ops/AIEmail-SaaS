@@ -24,6 +24,7 @@ import SideBar from "./sidebar"
 import SearchBar, { isSearchingAtom } from "./search-bar"
 import { useAtom } from "jotai"
 import AskAI from "./ask-ai"
+import { api } from "@/trpc/react"
 
 interface MailProps {
   defaultLayout: number[] | undefined
@@ -36,8 +37,48 @@ export function Mail({
   defaultCollapsed = false,
   navCollapsedSize,
 }: MailProps) {
+  const utils = api.useUtils()
   const [done, setDone] = useLocalStorage('normalhuman-done', false)
+  const [accountId] = useLocalStorage('accountId', '')
   const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed)
+  const syncAttemptedRef = React.useRef(new Set<string>())
+  const { data: account } = api.mail.getMyAccount.useQuery(
+    { accountId },
+    { enabled: !!accountId }
+  )
+
+  React.useEffect(() => {
+    if (!accountId || !account) return
+    if (account.threadCount > 0) return
+    if (syncAttemptedRef.current.has(accountId)) return
+
+    syncAttemptedRef.current.add(accountId)
+
+    fetch('/api/initial-sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ accountId }),
+    }).then(async (response) => {
+      const payload = await response.json().catch(() => null)
+      console.log('[mail] initial sync response', { accountId, status: response.status, payload })
+
+      if (!response.ok) {
+        syncAttemptedRef.current.delete(accountId)
+        return
+      }
+
+      await Promise.all([
+        utils.mail.getMyAccount.invalidate({ accountId }),
+        utils.mail.getThreads.invalidate(),
+        utils.mail.getNumThreads.invalidate(),
+      ])
+    }).catch((error) => {
+      console.log('[mail] initial sync failed', { accountId, error })
+      syncAttemptedRef.current.delete(accountId)
+    })
+  }, [account, accountId, utils.mail.getMyAccount, utils.mail.getNumThreads, utils.mail.getThreads])
 
 
   return (
