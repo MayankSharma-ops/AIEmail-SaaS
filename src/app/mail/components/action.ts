@@ -1,7 +1,7 @@
 'use server';
 
 import { streamText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { createStreamableValue } from 'ai/rsc';
 
 export async function generate(input: string) {
@@ -10,7 +10,7 @@ export async function generate(input: string) {
     console.log("input", input);
     (async () => {
         const { textStream } = await streamText({
-            model: openai('gpt-4o-mini'),
+            model: google('gemini-1.5-flash'),
             prompt: `
             You are a helpful AI embedded in a email client app that is used to answer questions about the emails in the inbox.
             ${input}

@@ -1,5 +1,5 @@
-import { Configuration, OpenAIApi } from "openai-edge";
-import { Message, OpenAIStream, StreamingTextResponse } from "ai";
+import { google } from "@ai-sdk/google";
+import { Message, streamText } from "ai";
 
 import { NextResponse } from "next/server";
 import { OramaManager } from "@/lib/orama";
@@ -10,10 +10,7 @@ import { FREE_CREDITS_PER_DAY } from "@/app/constants";
 
 // export const runtime = "edge";
 
-const config = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(config);
+// export const runtime = "edge";
 
 export async function POST(req: Request) {
     try {
@@ -23,18 +20,25 @@ export async function POST(req: Request) {
         }
         const isSubscribed = await getSubscriptionStatus()
         if (!isSubscribed) {
-            const chatbotInteraction = await db.chatbotInteraction.findUnique({
+            let chatbotInteraction = await db.chatbotInteraction.findUnique({
                 where: {
-                    day: new Date().toDateString(),
                     userId
                 }
             })
             if (!chatbotInteraction) {
-                await db.chatbotInteraction.create({
+                chatbotInteraction = await db.chatbotInteraction.create({
                     data: {
                         day: new Date().toDateString(),
                         count: 1,
                         userId
+                    }
+                })
+            } else if (chatbotInteraction.day !== new Date().toDateString()) {
+                chatbotInteraction = await db.chatbotInteraction.update({
+                    where: { userId },
+                    data: {
+                        day: new Date().toDateString(),
+                        count: 1
                     }
                 })
             } else if (chatbotInteraction.count >= FREE_CREDITS_PER_DAY) {
@@ -71,23 +75,16 @@ export async function POST(req: Request) {
         };
 
 
-        const response = await openai.createChatCompletion({
-            model: "gpt-4",
+        const result = await streamText({
+            model: google("gemini-1.5-flash"),
             messages: [
                 prompt,
                 ...messages.filter((message: Message) => message.role === "user"),
-            ],
-            stream: true,
-        });
-        const stream = OpenAIStream(response, {
-            onStart: async () => {
-            },
-            onCompletion: async (completion) => {
-                const today = new Date().toDateString()
+            ] as any,
+            onFinish: async (completion) => {
                 await db.chatbotInteraction.update({
                     where: {
-                        userId,
-                        day: today
+                        userId
                     },
                     data: {
                         count: {
@@ -97,7 +94,8 @@ export async function POST(req: Request) {
                 })
             },
         });
-        return new StreamingTextResponse(stream);
+        
+        return result.toDataStreamResponse();
     } catch (error) {
         console.log(error)
         return NextResponse.json({ error: "error" }, { status: 500 });

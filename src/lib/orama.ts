@@ -31,7 +31,7 @@ export class OramaManager {
                     from: 'string',
                     to: 'string[]',
                     sentAt: 'string',
-                    embeddings: 'vector[1536]',
+                    embeddings: 'vector[768]',
                     threadId: 'string'
                 },
             });
