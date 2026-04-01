@@ -1,9 +1,8 @@
 'use server';
-import TurndownService from 'turndown'
 
 import { streamText } from 'ai';
-import { google } from '@ai-sdk/google';
 import { createStreamableValue } from 'ai/rsc';
+import { geminiTextModel } from '@/lib/gemini';
 
 export async function generateEmail(context: string, prompt: string) {
     console.log("context", context)
@@ -11,7 +10,7 @@ export async function generateEmail(context: string, prompt: string) {
 
     (async () => {
         const { textStream } = await streamText({
-            model: google('gemini-1.5-flash'),
+            model: geminiTextModel(),
             prompt: `
             You are an AI email assistant embedded in an email client app. Your purpose is to help the user compose emails by providing suggestions and relevant information based on the context of their previous emails.
             
@@ -53,7 +52,7 @@ export async function generate(input: string) {
     console.log("input", input);
     (async () => {
         const { textStream } = await streamText({
-            model: google('gemini-1.5-flash'),
+            model: geminiTextModel(),
             prompt: `
             ALWAYS RESPOND IN PLAIN TEXT, no html or markdown.
             You are a helpful AI embedded in a email client app that is used to autocomplete sentences, similar to google gmail autocomplete

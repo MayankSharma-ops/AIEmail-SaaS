@@ -1,18 +1,12 @@
 import { streamText } from 'ai';
-import { google } from '@ai-sdk/google';
-
-export interface Message {
-    role: 'user' | 'assistant';
-    content: string;
-}
-
+import { geminiTextModel } from '@/lib/gemini';
 
 export async function POST(req: Request) {
     // extract the prompt from the body
     const { prompt } = await req.json();
 
     const result = await streamText({
-        model: google("gemini-1.5-flash"),
+        model: geminiTextModel(),
         system: `You are a helpful AI embedded in a notion text editor app that is used to autocomplete sentences
             The traits of AI include expert knowledge, helpfulness, cleverness, and articulateness.
         AI is a well-behaved and well-mannered individual.

@@ -19,15 +19,34 @@ const transitionDebug = {
 };
 const AskAI = ({ isCollapsed }: { isCollapsed: boolean }) => {
     const [accountId] = useLocalStorage('accountId', '')
-    const { input, handleInputChange, handleSubmit, messages } = useChat({
+    const { input, handleInputChange, handleSubmit, messages, isLoading } = useChat({
         api: "/api/chat",
         body: {
             accountId,
         },
+        onResponse: (response) => {
+            if (response.ok) return;
+
+            if (response.status === 400) {
+                toast.error('Select an account to ask AI questions.')
+                return
+            }
+
+            if (response.status === 401) {
+                toast.error('Please sign in again to use AI chat.')
+                return
+            }
+
+            if (response.status === 429) {
+                toast.error('You have reached the limit for today. Please upgrade to pro to ask as many questions as you want')
+            }
+        },
         onError: (error) => {
             if (error.message.includes('Limit reached')) {
                 toast.error('You have reached the limit for today. Please upgrade to pro to ask as many questions as you want')
+                return
             }
+            toast.error('Chatbot request failed. Please try again.')
         },
         initialMessages: [],
     });
@@ -125,8 +144,9 @@ const AskAI = ({ isCollapsed }: { isCollapsed: boolean }) => {
                         </motion.div>
                         <button
                             type="submit"
+                            disabled={!accountId || isLoading || !input.trim()}
                             className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-gray-200
-            dark:bg-gray-800"
+                            disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800"
                         >
                             <Send className="size-4 text-gray-500 dark:text-gray-300" />
                         </button>
@@ -136,5 +156,6 @@ const AskAI = ({ isCollapsed }: { isCollapsed: boolean }) => {
         </div>
     )
 }
+
 
 export default AskAI

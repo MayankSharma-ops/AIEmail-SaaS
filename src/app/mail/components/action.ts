@@ -1,8 +1,8 @@
 'use server';
 
 import { streamText } from 'ai';
-import { google } from '@ai-sdk/google';
 import { createStreamableValue } from 'ai/rsc';
+import { geminiTextModel } from '@/lib/gemini';
 
 export async function generate(input: string) {
     const stream = createStreamableValue('');
@@ -10,7 +10,7 @@ export async function generate(input: string) {
     console.log("input", input);
     (async () => {
         const { textStream } = await streamText({
-            model: google('gemini-1.5-flash'),
+            model: geminiTextModel(),
             prompt: `
             You are a helpful AI embedded in a email client app that is used to answer questions about the emails in the inbox.
             ${input}
