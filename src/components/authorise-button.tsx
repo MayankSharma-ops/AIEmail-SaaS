@@ -1,6 +1,6 @@
 'use client'
 import { Button } from "@/components/ui/button"
-import { getGoogleAuthorizationUrl } from "@/lib/google"
+import { getGoogleAuthUrlAction } from "@/app/mail/action"
 import { api } from "@/trpc/react"
 import { useLocalStorage } from "usehooks-ts"
 
@@ -15,7 +15,7 @@ export default function AuthoriseButton() {
             Sync Emails
         </Button>
         <Button size='sm' variant={'outline'} onClick={async () => {
-            const url = await getGoogleAuthorizationUrl()
+            const url = await getGoogleAuthUrlAction()
             window.location.href = url
         }}>
             Authorize Email

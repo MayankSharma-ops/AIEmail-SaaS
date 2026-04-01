@@ -118,7 +118,6 @@ export default class Account {
             threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
             const res = await this.gmail.users.messages.list({
                 userId: 'me',
-                q: `newer_than:3d`,
                 pageToken,
                 maxResults: 50,
             });
@@ -225,8 +224,10 @@ export default class Account {
             const formatAddress = (addr: EmailAddress) => addr.name ? `${addr.name} <${addr.address}>` : addr.address;
             
             const messageParts = [
+                `From: ${formatAddress(from)}`,
                 `To: ${to.map(formatAddress).join(', ')}`,
                 `Subject: ${subject}`,
+                `MIME-Version: 1.0`,
             ];
 
             if (cc && cc.length) messageParts.push(`Cc: ${cc.map(formatAddress).join(', ')}`);
@@ -238,7 +239,7 @@ export default class Account {
             messageParts.push('');
             messageParts.push(body);
 
-            const rawMessage = Buffer.from(messageParts.join('\n'))
+            const rawMessage = Buffer.from(messageParts.join('\r\n'))
                 .toString('base64')
                 .replace(/\+/g, '-')
                 .replace(/\//g, '_')
@@ -264,5 +265,12 @@ export default class Account {
         // Not implemented here for brevity, but this is the hook
         console.log('createSubscription is a stub for Gmail Pub/Sub setup.');
         return { success: true };
+    }
+
+    async getWebhooks() {
+        // Return an empty array or mocked structure to satisfy TRPC routers looking for Aurinko webhooks
+        return {
+            records: []
+        };
     }
 }

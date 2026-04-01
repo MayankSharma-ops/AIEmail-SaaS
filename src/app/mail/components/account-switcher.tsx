@@ -13,7 +13,7 @@ import {
 import { api, type RouterOutputs } from "@/trpc/react"
 import { useLocalStorage } from "usehooks-ts"
 import { Plus } from "lucide-react"
-import { getGoogleAuthorizationUrl } from "@/lib/google"
+import { getGoogleAuthUrlAction } from "@/app/mail/action"
 import { toast } from "sonner"
 
 interface AccountSwitcherProps {
@@ -25,6 +25,11 @@ export function AccountSwitcher({
 }: AccountSwitcherProps) {
   const { data: accounts } = api.mail.getAccounts.useQuery()
   const [accountId, setAccountId] = useLocalStorage('accountId', '')
+  const [isMounted, setIsMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   React.useEffect(() => {
     if (accounts && accounts.length > 0) {
@@ -36,7 +41,7 @@ export function AccountSwitcher({
           label: 'Add account',
           onClick: async () => {
             try {
-              const url = await getGoogleAuthorizationUrl()
+              const url = await getGoogleAuthUrlAction()
               window.location.href = url
             } catch (error) {
               toast.error((error as Error).message)
@@ -49,7 +54,7 @@ export function AccountSwitcher({
 
 
 
-  if (!accounts) return <></>
+  if (!isMounted || !accounts) return <></>
   return (
     <div className="items-center gap-2 flex w-full">
       <Select defaultValue={accountId} onValueChange={setAccountId}>
@@ -86,7 +91,7 @@ export function AccountSwitcher({
           ))}
           <div onClick={async (e) => {
             try {
-              const url = await getGoogleAuthorizationUrl()
+              const url = await getGoogleAuthUrlAction()
               window.location.href = url
             } catch (error) {
               toast.error((error as Error).message)

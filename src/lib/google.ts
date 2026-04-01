@@ -1,4 +1,3 @@
-'use server'
 import { google } from 'googleapis';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { getSubscriptionStatus } from './stripe-actions';
@@ -7,7 +6,7 @@ import { FREE_ACCOUNTS_PER_USER, PRO_ACCOUNTS_PER_USER } from '@/app/constants';
 import { OAuth2Client } from 'google-auth-library';
 
 export const getGoogleOAuthClient = () => {
-    return new google.auth.OAuth2(
+    return new OAuth2Client(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
         `${process.env.NEXT_PUBLIC_URL}/api/google/callback`

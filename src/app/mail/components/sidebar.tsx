@@ -23,6 +23,11 @@ const SideBar = ({ isCollapsed }: Props) => {
 
     const [tab] = useLocalStorage("normalhuman-tab", "inbox")
     const [accountId] = useLocalStorage("accountId", "")
+    const [isMounted, setIsMounted] = React.useState(false)
+
+    React.useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     const refetchInterval = 5000
     const { data: inboxThreads } = api.mail.getNumThreads.useQuery({
@@ -39,6 +44,8 @@ const SideBar = ({ isCollapsed }: Props) => {
         accountId,
         tab: "sent"
     }, { enabled: !!accountId && !!tab, refetchInterval })
+
+    if (!isMounted) return null;
 
     return (
         <>

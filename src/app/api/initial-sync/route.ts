@@ -11,7 +11,7 @@ export const POST = async (req: NextRequest) => {
     const { accountId, userId } = body
     if (!accountId || !userId) return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
 
-    const dbAccount = await db.account.findUnique({
+    const dbAccount = await db.account.findFirst({
         where: {
             id: accountId,
             userId,
