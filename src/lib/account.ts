@@ -119,7 +119,8 @@ export default class Account {
             const res = await this.gmail.users.messages.list({
                 userId: 'me',
                 pageToken,
-                maxResults: 50,
+                // maxResults: 50,
+                maxResults: 10
             });
             const messages = res.data.messages || [];
             nextToken = res.data.nextPageToken;
@@ -180,7 +181,23 @@ export default class Account {
         const activeAccount = acc || account;
 
         if (!activeAccount) throw new Error("Invalid token or account");
-        if (!activeAccount.nextDeltaToken) throw new Error("No delta token");
+        // if (!activeAccount.nextDeltaToken) throw new Error("No delta token");
+        if (!activeAccount.nextDeltaToken) {
+    console.log("No delta token → running initial sync");
+
+    const initial = await this.performInitialSync();
+
+    if (initial?.emails?.length) {
+        await syncEmailsToDatabase(initial.emails, activeAccount.id);
+    }
+
+    await db.account.update({
+        where: { id: activeAccount.id },
+        data: { nextDeltaToken: initial?.deltaToken }
+    });
+
+    return;
+}
 
         let response = await this.getUpdatedEmails({ historyId: activeAccount.nextDeltaToken });
         let allEmails: EmailMessage[] = response.records;

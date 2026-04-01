@@ -204,7 +204,7 @@ export const mailRouter = createTRPCRouter({
         const account = await authoriseAccountAccess(input.accountId, ctx.auth.userId)
         if (!account) throw new Error("Invalid token")
         const acc = new Account(account.token)
-        acc.syncEmails()
+        await acc.syncEmails()
     }),
     setUndone: protectedProcedure.input(z.object({
         threadId: z.string().optional(),
