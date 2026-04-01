@@ -1,5 +1,5 @@
 'use client'
-import Avatar from 'react-avatar';
+import * as Avatar from "@radix-ui/react-avatar"
 import { Letter } from 'react-letter';
 import { api, type RouterOutputs } from '@/trpc/react'
 import React from 'react'

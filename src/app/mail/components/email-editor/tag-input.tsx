@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Avatar from 'react-avatar';
+import * as Avatar from "@radix-ui/react-avatar"
 import Select from 'react-select';
 
 type TagInputProps = {
