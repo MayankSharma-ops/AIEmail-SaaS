@@ -41,7 +41,6 @@ export class OramaManager {
 
     async insert(document: any) {
         await insert(this.orama, document);
-        await this.saveIndex();
     }
 
     async vectorSearch({ prompt, numResults = 10 }: { prompt: string, numResults?: number }) {

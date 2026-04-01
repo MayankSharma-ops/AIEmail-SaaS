@@ -31,7 +31,7 @@ export const POST = async (req: NextRequest) => {
     const { deltaToken, emails } = response
     console.log('[initial-sync] fetched emails', { accountId, emailCount: emails.length, deltaToken })
 
-    await syncEmailsToDatabase(emails, accountId)
+    await syncEmailsToDatabase(emails, accountId, { skipIndexing: true })
 
     await db.account.update({
         where: {

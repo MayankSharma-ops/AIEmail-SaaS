@@ -6,7 +6,13 @@ import { OramaManager } from './orama';
 import { getEmbeddings } from './embeddings';
 import { turndown } from './turndown';
 
-async function syncEmailsToDatabase(emails: EmailMessage[], accountId: string) {
+async function syncEmailsToDatabase(
+    emails: EmailMessage[],
+    accountId: string,
+    options?: {
+        skipIndexing?: boolean
+    }
+) {
     console.log(`Syncing ${emails.length} emails to database`);
     const limit = pLimit(10); // Process up to 10 emails concurrently
 
@@ -14,7 +20,7 @@ async function syncEmailsToDatabase(emails: EmailMessage[], accountId: string) {
         await upsertEmail(email, index, accountId);
     }
 
-    if (emails.length === 0) {
+    if (emails.length === 0 || options?.skipIndexing) {
         return;
     }
 
@@ -41,6 +47,8 @@ async function syncEmailsToDatabase(emails: EmailMessage[], accountId: string) {
                 });
             });
         }));
+
+        await oramaClient.saveIndex();
     } catch (error) {
         console.log('Failed to sync emails to Orama', error);
     }

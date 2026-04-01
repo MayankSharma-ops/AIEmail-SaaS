@@ -1,8 +1,12 @@
-import { google, gmail_v1 } from 'googleapis';
+import { google } from 'googleapis';
+import type { gmail_v1 } from 'googleapis';
 import { db } from '@/server/db';
 import { syncEmailsToDatabase } from './sync-to-db';
 import type { EmailMessage, EmailAddress, EmailAttachment, SyncUpdatedResponse } from '@/lib/types';
 import { getGoogleOAuthClient } from './google';
+
+const INITIAL_SYNC_MAX_EMAILS = 100;
+const INITIAL_SYNC_PAGE_SIZE = 25;
 
 export default class Account {
     private token: any;
@@ -24,7 +28,7 @@ export default class Account {
         const ccStr = getHeader('cc');
         const bccStr = getHeader('bcc');
         const subject = getHeader('subject');
-        
+
         const parseAddress = (str: string): EmailAddress[] => {
             if (!str) return [];
             return str.split(',').map(s => {
@@ -55,7 +59,6 @@ export default class Account {
         }
 
         const attachments: EmailAttachment[] = [];
-        // Optional: Implement attachments parsing if needed here
 
         return {
             id: message.id!,
@@ -76,7 +79,7 @@ export default class Account {
             bcc: parseAddress(bccStr),
             replyTo: parseAddress(getHeader('reply-to')),
             hasAttachments: false,
-            body: body,
+            body,
             bodySnippet: message.snippet || '',
             attachments,
             inReplyTo: getHeader('in-reply-to'),
@@ -87,7 +90,15 @@ export default class Account {
         };
     }
 
-    async getUpdatedEmails({ pageToken, historyId }: { pageToken?: string, historyId?: string }): Promise<SyncUpdatedResponse> {
+    async getUpdatedEmails({
+        pageToken,
+        historyId,
+        maxResults,
+    }: {
+        pageToken?: string,
+        historyId?: string,
+        maxResults?: number
+    }): Promise<SyncUpdatedResponse> {
         let records: EmailMessage[] = [];
         let nextToken = undefined;
         let nextHistoryId = historyId;
@@ -114,16 +125,19 @@ export default class Account {
                 }
             }
         } else {
-            const threeDaysAgo = new Date();
-            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
             const res = await this.gmail.users.messages.list({
                 userId: 'me',
                 pageToken,
-                // maxResults: 50,
-                maxResults: 10
+                maxResults: maxResults ?? INITIAL_SYNC_PAGE_SIZE,
             });
             const messages = res.data.messages || [];
             nextToken = res.data.nextPageToken;
+            console.log('[account.getUpdatedEmails] initial page', {
+                pageToken: pageToken ?? null,
+                requested: maxResults ?? INITIAL_SYNC_PAGE_SIZE,
+                fetched: messages.length,
+                hasNextPage: !!nextToken,
+            });
 
             for (const m of messages) {
                 if (m.id) {
@@ -143,20 +157,34 @@ export default class Account {
 
     async performInitialSync() {
         try {
-            let updatedResponse = await this.getUpdatedEmails({});
+            let updatedResponse = await this.getUpdatedEmails({
+                maxResults: INITIAL_SYNC_PAGE_SIZE,
+            });
             let allEmails: EmailMessage[] = updatedResponse.records;
             let storedDeltaToken = updatedResponse.nextDeltaToken;
+            console.log('[account.performInitialSync] fetched first batch', {
+                emailCount: allEmails.length,
+                hasNextPage: !!updatedResponse.nextPageToken,
+            });
 
-            while (updatedResponse.nextPageToken) {
-                updatedResponse = await this.getUpdatedEmails({ pageToken: updatedResponse.nextPageToken });
+            while (updatedResponse.nextPageToken && allEmails.length < INITIAL_SYNC_MAX_EMAILS) {
+                const remaining = INITIAL_SYNC_MAX_EMAILS - allEmails.length;
+                updatedResponse = await this.getUpdatedEmails({
+                    pageToken: updatedResponse.nextPageToken,
+                    maxResults: Math.min(INITIAL_SYNC_PAGE_SIZE, remaining),
+                });
                 allEmails = allEmails.concat(updatedResponse.records);
                 if (updatedResponse.nextDeltaToken) {
                     storedDeltaToken = updatedResponse.nextDeltaToken;
                 }
+                console.log('[account.performInitialSync] accumulated emails', {
+                    emailCount: allEmails.length,
+                    hasNextPage: !!updatedResponse.nextPageToken,
+                });
             }
 
             return {
-                emails: allEmails,
+                emails: allEmails.slice(0, INITIAL_SYNC_MAX_EMAILS),
                 deltaToken: storedDeltaToken,
             };
         } catch (error) {
@@ -166,45 +194,49 @@ export default class Account {
 
     async syncEmails() {
         const account = await db.account.findUnique({
-            where: { token: JSON.stringify(this.token) }, // Or query by actual account ID from context
+            where: { token: JSON.stringify(this.token) },
         });
 
-        // Quick fallback if finding by strict string match fails
         const accounts = await db.account.findMany();
         const acc = accounts.find(a => {
             try {
                 const t = JSON.parse(a.token);
                 return t.access_token === this.token.access_token;
-            } catch (e) { return false; }
+            } catch (e) {
+                return false;
+            }
         });
 
         const activeAccount = acc || account;
 
-        if (!activeAccount) throw new Error("Invalid token or account");
-        // if (!activeAccount.nextDeltaToken) throw new Error("No delta token");
+        if (!activeAccount) throw new Error('Invalid token or account');
+
         if (!activeAccount.nextDeltaToken) {
-    console.log("No delta token → running initial sync");
+            console.log('No delta token -> running initial sync');
 
-    const initial = await this.performInitialSync();
+            const initial = await this.performInitialSync();
 
-    if (initial?.emails?.length) {
-        await syncEmailsToDatabase(initial.emails, activeAccount.id);
-    }
+            if (initial?.emails?.length) {
+                await syncEmailsToDatabase(initial.emails, activeAccount.id, { skipIndexing: true });
+            }
 
-    await db.account.update({
-        where: { id: activeAccount.id },
-        data: { nextDeltaToken: initial?.deltaToken }
-    });
+            await db.account.update({
+                where: { id: activeAccount.id },
+                data: { nextDeltaToken: initial?.deltaToken }
+            });
 
-    return;
-}
+            return;
+        }
 
         let response = await this.getUpdatedEmails({ historyId: activeAccount.nextDeltaToken });
         let allEmails: EmailMessage[] = response.records;
         let storedDeltaToken = response.nextDeltaToken;
 
         while (response.nextPageToken) {
-            response = await this.getUpdatedEmails({ historyId: activeAccount.nextDeltaToken, pageToken: response.nextPageToken });
+            response = await this.getUpdatedEmails({
+                historyId: activeAccount.nextDeltaToken,
+                pageToken: response.nextPageToken
+            });
             allEmails = allEmails.concat(response.records);
             if (response.nextDeltaToken) {
                 storedDeltaToken = response.nextDeltaToken;
@@ -239,7 +271,7 @@ export default class Account {
     }) {
         try {
             const formatAddress = (addr: EmailAddress) => addr.name ? `${addr.name} <${addr.address}>` : addr.address;
-            
+
             const messageParts = [
                 `From: ${formatAddress(from)}`,
                 `To: ${to.map(formatAddress).join(', ')}`,
@@ -277,15 +309,11 @@ export default class Account {
     }
 
     async createSubscription() {
-        const webhookUrl = process.env.NODE_ENV === 'development' ? 'https://potatoes-calculator-reports-crisis.trycloudflare.com' : process.env.NEXT_PUBLIC_URL;
-        // In Gmail, you use watch() to get Pub/Sub notifications
-        // Not implemented here for brevity, but this is the hook
         console.log('createSubscription is a stub for Gmail Pub/Sub setup.');
         return { success: true };
     }
 
     async getWebhooks() {
-        // Return an empty array or mocked structure to satisfy TRPC routers looking for Aurinko webhooks
         return {
             records: []
         };
