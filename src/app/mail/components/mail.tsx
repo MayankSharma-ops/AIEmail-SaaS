@@ -46,7 +46,9 @@ export function Mail({
     { accountId },
     { enabled: !!accountId }
   )
+  const syncEmails = api.mail.syncEmails.useMutation()
 
+  // Initial sync: runs once when account has no threads yet
   React.useEffect(() => {
     if (!accountId || !account) return
     if (account.threadCount > 0) return
@@ -79,6 +81,32 @@ export function Mail({
       syncAttemptedRef.current.delete(accountId)
     })
   }, [account, accountId, utils.mail.getMyAccount, utils.mail.getNumThreads, utils.mail.getThreads])
+
+  // Periodic delta sync: fetches new emails from Gmail every 60 seconds
+  React.useEffect(() => {
+    if (!accountId || !account) return
+    if (account.threadCount === 0) return // wait for initial sync first
+
+    const doSync = async () => {
+      try {
+        console.log('[mail] delta sync started', { accountId })
+        await syncEmails.mutateAsync({ accountId })
+        console.log('[mail] delta sync complete', { accountId })
+        await Promise.all([
+          utils.mail.getThreads.invalidate(),
+          utils.mail.getNumThreads.invalidate(),
+        ])
+      } catch (error) {
+        console.error('[mail] delta sync failed', { accountId, error })
+      }
+    }
+
+    // Run immediately on mount, then every 60 seconds
+    void doSync()
+    const interval = setInterval(doSync, 60_000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, account?.threadCount])
 
 
   return (
