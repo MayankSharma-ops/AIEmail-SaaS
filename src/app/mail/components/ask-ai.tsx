@@ -8,7 +8,7 @@ import { Send } from 'lucide-react';
 import { useLocalStorage } from 'usehooks-ts';
 import { cn } from '@/lib/utils';
 import { SparklesIcon } from '@heroicons/react/24/solid';
-import StripeButton from './stripe-button';
+import PaymentButton from './payment-button';
 import PremiumBanner from './premium-banner';
 import { toast } from 'sonner';
 

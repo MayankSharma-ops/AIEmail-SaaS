@@ -1,10 +1,10 @@
 'use client'
 import { motion } from 'framer-motion'
 import React from 'react'
-import StripeButton from './stripe-button'
+import PaymentButton from './payment-button'
 import { api } from '@/trpc/react'
 import { FREE_CREDITS_PER_DAY } from '@/app/constants'
-import { getSubscriptionStatus } from '@/lib/stripe-actions'
+import { getSubscriptionStatus } from '@/lib/razorpay-actions'
 
 const PremiumBanner = () => {
     const [isSubscribed, setIsSubscribed] = React.useState(false)
@@ -26,7 +26,7 @@ const PremiumBanner = () => {
                 <div className="h-2"></div>
                 <p className='text-gray-400 text-sm md:max-w-[calc(100%-70px)]'>Ask as many questions as you want</p>
                 <div className="h-4"></div>
-                <StripeButton />
+                <PaymentButton />
             </div>
         </motion.div>
     )
@@ -42,7 +42,7 @@ const PremiumBanner = () => {
                 <div className="h-4"></div>
                 <p className='text-gray-400 text-sm md:max-w-[calc(100%-150px)]'>Upgrade to pro to ask as many questions as you want</p>
                 <div className="h-4"></div>
-                <StripeButton />
+                <PaymentButton />
             </div>
         </motion.div>
     )

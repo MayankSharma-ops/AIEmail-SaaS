@@ -17,7 +17,7 @@ CREATE TABLE "User" (
     "firstName" TEXT,
     "lastName" TEXT,
     "imageUrl" TEXT,
-    "stripeSubscriptionId" TEXT,
+    "subscriptionRefId" TEXT,
     "role" "Role" NOT NULL DEFAULT 'user',
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
@@ -34,18 +34,17 @@ CREATE TABLE "ChatbotInteraction" (
 );
 
 -- CreateTable
-CREATE TABLE "StripeSubscription" (
+CREATE TABLE "Subscription" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "userId" TEXT,
     "subscriptionId" TEXT,
-    "productId" TEXT,
-    "priceId" TEXT,
-    "customerId" TEXT,
+    "planId" TEXT,
+    "razorpayPaymentId" TEXT,
     "currentPeriodEnd" TIMESTAMP(3) NOT NULL,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "StripeSubscription_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Subscription_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -162,7 +161,7 @@ CREATE TABLE "_ReplyToEmails" (
 CREATE UNIQUE INDEX "User_emailAddress_key" ON "User"("emailAddress");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_stripeSubscriptionId_key" ON "User"("stripeSubscriptionId");
+CREATE UNIQUE INDEX "User_subscriptionRefId_key" ON "User"("subscriptionRefId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ChatbotInteraction_userId_key" ON "ChatbotInteraction"("userId");
@@ -174,10 +173,10 @@ CREATE INDEX "ChatbotInteraction_day_userId_idx" ON "ChatbotInteraction"("day", 
 CREATE UNIQUE INDEX "ChatbotInteraction_day_userId_key" ON "ChatbotInteraction"("day", "userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "StripeSubscription_userId_key" ON "StripeSubscription"("userId");
+CREATE UNIQUE INDEX "Subscription_userId_key" ON "Subscription"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "StripeSubscription_subscriptionId_key" ON "StripeSubscription"("subscriptionId");
+CREATE UNIQUE INDEX "Subscription_subscriptionId_key" ON "Subscription"("subscriptionId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Account_token_key" ON "Account"("token");
@@ -237,7 +236,7 @@ CREATE UNIQUE INDEX "_ReplyToEmails_AB_unique" ON "_ReplyToEmails"("A", "B");
 CREATE INDEX "_ReplyToEmails_B_index" ON "_ReplyToEmails"("B");
 
 -- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_stripeSubscriptionId_fkey" FOREIGN KEY ("stripeSubscriptionId") REFERENCES "StripeSubscription"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "User" ADD CONSTRAINT "User_subscriptionRefId_fkey" FOREIGN KEY ("subscriptionRefId") REFERENCES "Subscription"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ChatbotInteraction" ADD CONSTRAINT "ChatbotInteraction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;

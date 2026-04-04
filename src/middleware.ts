@@ -7,7 +7,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks(.*)',
   '/api/initial-sync(.*)',
   '/api/google/webhook(.*)',
-  '/api/stripe(.*)',
+  '/api/razorpay(.*)',
   '/privacy',
   '/terms-of-service'
 ])
