@@ -32,6 +32,27 @@ const AIComposeButton = (props: Props) => {
   const { account, threads } = useThreads();
   const [threadId] = useThread();
   const thread = threads?.find((t) => t.id === threadId);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "r"
+      ) {
+        event.preventDefault();
+        setOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const aiGenerate = async (prompt: string) => {
     props.onGeneratingChange?.(true);
     let context: string | undefined = "";
