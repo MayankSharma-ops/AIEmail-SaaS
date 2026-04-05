@@ -44,6 +44,14 @@ const draftFilter = (accountId: string): Prisma.ThreadWhereInput => ({
   draftStatus: true,
 });
 
+const setUnreadLabel = (sysLabels: string[], unread: boolean) => {
+  if (unread) {
+    return sysLabels.includes("unread") ? sysLabels : [...sysLabels, "unread"];
+  }
+
+  return sysLabels.filter((label) => label !== "unread");
+};
+
 export const mailRouter = createTRPCRouter({
   getAccounts: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.db.account.findMany({
@@ -341,6 +349,63 @@ export const mailRouter = createTRPCRouter({
           },
         });
       }
+    }),
+  setReadStatus: protectedProcedure
+    .input(
+      z.object({
+        accountId: z.string(),
+        threadId: z.string(),
+        unread: z.boolean(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const account = await authoriseAccountAccess(
+        input.accountId,
+        ctx.auth.userId,
+      );
+      if (!account) throw new Error("Invalid token");
+
+      const thread = await ctx.db.thread.findFirst({
+        where: {
+          id: input.threadId,
+          accountId: account.id,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!thread) {
+        throw new Error("Thread not found");
+      }
+
+      const emails = await ctx.db.email.findMany({
+        where: {
+          threadId: thread.id,
+        },
+        select: {
+          id: true,
+          sysLabels: true,
+        },
+      });
+
+      await ctx.db.$transaction(
+        emails.map((email) =>
+          ctx.db.email.update({
+            where: {
+              id: email.id,
+            },
+            data: {
+              sysLabels: setUnreadLabel(email.sysLabels, input.unread),
+            },
+          }),
+        ),
+      );
+
+      return {
+        threadId: thread.id,
+        unread: input.unread,
+      };
     }),
   getEmailDetails: protectedProcedure
     .input(

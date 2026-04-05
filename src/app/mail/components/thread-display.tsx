@@ -1,9 +1,9 @@
-import EmailEditor from "./email-editor";
 import {
   Archive,
   ArchiveX,
   Clock,
   Forward,
+  MailOpen,
   MoreVertical,
   Reply,
   ReplyAll,
@@ -25,45 +25,93 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { api, type RouterOutputs } from "@/trpc/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { addDays, addHours, format, nextSaturday } from "date-fns"
 import EmailDisplay from "./email-display"
 import { useThread } from "../use-thread";
 import useThreads from "../use-threads";
 import { useAtom } from "jotai";
-import { isSearchingAtom, searchValueAtom } from "./search-bar";
+import { isSearchingAtom } from "./search-bar";
 import SearchDisplay from "./search-display";
-import { useLocalStorage } from "usehooks-ts";
 import ReplyBox from "./reply-box";
+import { toast } from "sonner";
+import { setThreadUnreadState, threadHasUnreadMessages } from "./thread-read-state";
 
 
 export function ThreadDisplay() {
-  const [threadId, setThreadId] = useThread()
-  const { threads, isFetching } = useThreads()
+  const queryClient = useQueryClient()
+  const utils = api.useUtils()
+  const [threadId] = useThread()
+  const { threads, accountId, queryKey, refetch } = useThreads()
   const today = new Date()
   const _thread = threads?.find(t => t.id === threadId)
-  const [isSearching, setIsSearching] = useAtom(isSearchingAtom)
-
-  const [accountId] = useLocalStorage('accountId', '')
+  const [isSearching] = useAtom(isSearchingAtom)
   const { data: foundThread } = api.mail.getThreadById.useQuery({
     accountId: accountId,
     threadId: threadId ?? ''
-  }, { enabled: !!!_thread && !!threadId })
+  }, { enabled: !!accountId && !!!_thread && !!threadId })
   const thread = _thread ?? foundThread
+  const isUnread = threadHasUnreadMessages(thread)
+  const setReadStatus = api.mail.setReadStatus.useMutation({
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previousData = queryClient.getQueryData<RouterOutputs['mail']['getThreads']>(queryKey)
+      queryClient.setQueryData(queryKey, (data: RouterOutputs['mail']['getThreads'] | undefined) => {
+        if (!data) return data
+
+        return data.map((item) =>
+          item.id === payload.threadId ? setThreadUnreadState(item, payload.unread) : item
+        )
+      })
+
+      return { previousData }
+    },
+    onError: (_error, payload, context) => {
+      if (context?.previousData !== undefined) {
+        queryClient.setQueryData(queryKey, context.previousData)
+      }
+
+      void utils.mail.getThreadById.invalidate({
+        accountId,
+        threadId: payload.threadId,
+      })
+      toast.error("Couldn't update the read status.")
+    },
+    onSuccess: (_data, payload) => {
+      toast.success(payload.unread ? "Marked as unread." : "Marked as read.")
+    },
+    onSettled: async (_data, _error, payload) => {
+      await Promise.all([
+        refetch(),
+        utils.mail.getThreadById.invalidate({
+          accountId,
+          threadId: payload.threadId,
+        }),
+      ])
+    },
+  })
+
+  const handleReadToggle = () => {
+    if (!thread || !accountId) return
+
+    setReadStatus.mutate({
+      accountId,
+      threadId: thread.id,
+      unread: !isUnread,
+    })
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -156,6 +204,24 @@ export function ThreadDisplay() {
             </Popover>
             <TooltipContent>Snooze</TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 px-3"
+                disabled={!thread}
+                isLoading={setReadStatus.isPending}
+                onClick={handleReadToggle}
+              >
+                <MailOpen className="w-4 h-4" />
+                <span>Read / Unread</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isUnread ? "Mark as read" : "Mark as unread"}
+            </TooltipContent>
+          </Tooltip>
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <Tooltip>
@@ -195,7 +261,6 @@ export function ThreadDisplay() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Mark as unread</DropdownMenuItem>
             <DropdownMenuItem>Star thread</DropdownMenuItem>
             <DropdownMenuItem>Add label</DropdownMenuItem>
             <DropdownMenuItem>Mute thread</DropdownMenuItem>
