@@ -81,6 +81,14 @@ const AskAI = ({ isCollapsed }: { isCollapsed: boolean }) => {
       },
       initialMessages: [],
     });
+
+  const lastMessage = messages[messages.length - 1];
+  const showGenerating =
+    isLoading &&
+    (!lastMessage ||
+      lastMessage.role !== "assistant" ||
+      lastMessage.content.trim().length === 0);
+
   React.useEffect(() => {
     const messageContainer = document.getElementById("message-container");
     if (messageContainer) {
@@ -123,6 +131,21 @@ const AskAI = ({ isCollapsed }: { isCollapsed: boolean }) => {
                 </div>
               </motion.div>
             ))}
+            {showGenerating ? (
+              <motion.div
+                key="generating"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                className={cn(
+                  "aiemail-generating z-10 mt-2 max-w-[250px] self-start break-words rounded-2xl bg-blue-500 text-white",
+                )}
+              >
+                <div className="px-3 py-2 text-[15px] leading-[15px]">
+                  <span className="aiemail-generating__dots">Generating</span>
+                </div>
+              </motion.div>
+            ) : null}
           </AnimatePresence>
         </div>
         {messages.length > 0 && <div className="h-4"></div>}
