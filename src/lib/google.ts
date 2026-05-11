@@ -23,6 +23,8 @@ const GOOGLE_REQUIRED_SCOPES = [
 ] as const;
 
 export const getGoogleOAuthClient = () => {
+  if (!process.env.GOOGLE_CLIENT_ID) throw new Error("GOOGLE_CLIENT_ID is not set in environment variables");
+  if (!process.env.GOOGLE_CLIENT_SECRET) throw new Error("GOOGLE_CLIENT_SECRET is not set in environment variables");
   return new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
