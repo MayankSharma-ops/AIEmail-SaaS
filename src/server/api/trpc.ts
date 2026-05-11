@@ -26,12 +26,21 @@ import { auth } from "@clerk/nextjs/server";
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
-  const user = await auth()
-  return {
-    auth: user,
-    db,
-    ...opts,
-  };
+  try {
+    const user = await auth();
+    return {
+      auth: user,
+      db,
+      ...opts,
+    };
+  } catch (error) {
+    console.error("Clerk Auth Error in createTRPCContext:", error);
+    return {
+      auth: null,
+      db,
+      ...opts,
+    };
+  }
 };
 
 /**
