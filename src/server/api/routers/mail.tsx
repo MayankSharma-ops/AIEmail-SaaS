@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import Account from "@/lib/account";
 import { syncEmailsToDatabase } from "@/lib/sync-to-db";
@@ -25,7 +26,7 @@ export const authoriseAccountAccess = async (
       nextDeltaToken: true,
     },
   });
-  if (!account) throw new Error("Invalid token");
+  if (!account) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid token" });
   return account;
 };
 
