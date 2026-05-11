@@ -28,7 +28,10 @@ const ComposeButton = () => {
     { label: string; value: string }[]
   >([]);
   const [subject, setSubject] = React.useState<string>("");
-  const { data: account } = api.mail.getMyAccount.useQuery({ accountId });
+  const { data: account } = api.mail.getMyAccount.useQuery(
+    { accountId },
+    { enabled: !!accountId },
+  );
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
