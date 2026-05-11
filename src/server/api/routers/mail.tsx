@@ -271,7 +271,7 @@ export const mailRouter = createTRPCRouter({
         ctx.auth.userId,
       );
       if (!account) throw new Error("Invalid token");
-      const acc = new Account(account.token);
+      const acc = await Account.fromStoredAccount(account);
       await acc.syncEmails();
     }),
   setUndone: protectedProcedure
@@ -438,7 +438,7 @@ export const mailRouter = createTRPCRouter({
         input.accountId,
         ctx.auth.userId,
       );
-      const account = new Account(acc.token);
+      const account = await Account.fromStoredAccount(acc);
       console.log("sendmail", input);
       await account.sendEmail({
         body: input.body,

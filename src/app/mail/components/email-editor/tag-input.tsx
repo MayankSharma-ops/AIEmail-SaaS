@@ -2,14 +2,19 @@ import React, { useState } from "react";
 import Avatar from "react-avatar";
 import Select from "react-select";
 
+type TagOption = {
+  label: string;
+  value: string;
+};
+
 type TagInputProps = {
   suggestions: string[];
-  defaultValues?: { label: string; value: string }[];
+  defaultValues?: TagOption[];
   placeholder: string;
   label: string;
 
-  onChange: (values: { label: string; value: string }[]) => void;
-  value: { label: string; value: string }[];
+  onChange: (values: TagOption[]) => void;
+  value: TagOption[];
 };
 
 const TagInput: React.FC<TagInputProps> = ({
@@ -21,46 +26,31 @@ const TagInput: React.FC<TagInputProps> = ({
 }) => {
   const [input, setInput] = useState("");
 
-  const options = suggestions.map((suggestion) => ({
-    label: (
-      <span className="flex items-center gap-2">
-        <Avatar name={suggestion} size="25" textSizeRatio={2} round={true} />
-        {suggestion}
-      </span>
-    ),
+  const options: TagOption[] = suggestions.map((suggestion) => ({
+    label: suggestion,
     value: suggestion,
   }));
+
+  const renderOption = (option: TagOption) => (
+    <span className="flex items-center gap-2">
+      <Avatar name={option.label} size="25" textSizeRatio={2} round={true} />
+      {option.label}
+    </span>
+  );
 
   return (
     <div className="flex items-center rounded-md border">
       <span className="ml-3 text-sm text-gray-500">{label}</span>
-      <Select
+      <Select<TagOption, true>
         value={value}
-        // @ts-ignore
-        onChange={onChange}
+        onChange={(selected) => onChange([...selected])}
         className="w-full flex-1"
         isMulti
         onInputChange={setInput}
         defaultValue={defaultValues}
         placeholder={""}
-        options={
-          input
-            ? options.concat({
-                label: (
-                  <span className="flex items-center gap-2">
-                    <Avatar
-                      name={input}
-                      size="25"
-                      textSizeRatio={2}
-                      round={true}
-                    />
-                    {input}
-                  </span>
-                ),
-                value: input,
-              })
-            : options
-        }
+        options={input ? options.concat({ label: input, value: input }) : options}
+        formatOptionLabel={renderOption}
         classNames={{
           control: () => {
             return "!border-none !outline-none !ring-0 !shadow-none focus:border-none focus:outline-none focus:ring-0 focus:shadow-none dark:bg-transparent";

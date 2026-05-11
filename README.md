@@ -58,6 +58,13 @@ Follow the steps below to install and setup the project:
 5. **Setup environment variables**
 
    Create a `.env` file in the root directory of your project and add the required environment variables.
+   Security-sensitive additions for this build:
+
+   ```bash
+   ACCOUNT_TOKEN_ENCRYPTION_KEY=replace-with-a-long-random-secret
+   UPSTASH_REDIS_REST_URL=your-upstash-rest-url
+   UPSTASH_REDIS_REST_TOKEN=your-upstash-rest-token
+   ```
 
 6. **Run the project**
 

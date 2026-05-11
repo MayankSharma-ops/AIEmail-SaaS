@@ -26,6 +26,23 @@ export async function POST(req: Request) {
       );
     }
 
+    const account = await db.account.findFirst({
+      where: {
+        id: accountId,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!account) {
+      return NextResponse.json(
+        { error: "You do not have access to that account." },
+        { status: 403 },
+      );
+    }
+
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
         { error: "A message is required." },
@@ -84,7 +101,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const oramaManager = new OramaManager(accountId);
+    const oramaManager = new OramaManager(account.id);
     await oramaManager.initialize();
 
     const lastMessage = messages[messages.length - 1];

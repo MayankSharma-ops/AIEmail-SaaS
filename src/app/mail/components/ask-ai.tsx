@@ -20,7 +20,7 @@ const transitionDebug = {
 const AskAI = ({ isCollapsed }: { isCollapsed: boolean }) => {
   const [accountId] = useLocalStorage("accountId", "");
   const limitToastShownRef = React.useRef(false);
-  const { input, handleInputChange, handleSubmit, messages, isLoading } =
+  const { input, handleInputChange, handleSubmit, messages, isLoading, setInput } =
     useChat({
       api: "/api/chat",
       body: {
@@ -166,37 +166,19 @@ const AskAI = ({ isCollapsed }: { isCollapsed: boolean }) => {
               <div className="h-2"></div>
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  onClick={() =>
-                    handleInputChange({
-                      target: {
-                        value: "What can I ask?",
-                      },
-                    })
-                  }
+                  onClick={() => setInput("What can I ask?")}
                   className="rounded-md bg-gray-800 px-2 py-1 text-xs text-gray-200"
                 >
                   What can I ask?
                 </span>
                 <span
-                  onClick={() =>
-                    handleInputChange({
-                      target: {
-                        value: "When is my next flight?",
-                      },
-                    })
-                  }
+                  onClick={() => setInput("When is my next flight?")}
                   className="rounded-md bg-gray-800 px-2 py-1 text-xs text-gray-200"
                 >
                   When is my next flight?
                 </span>
                 <span
-                  onClick={() =>
-                    handleInputChange({
-                      target: {
-                        value: "When is my next meeting?",
-                      },
-                    })
-                  }
+                  onClick={() => setInput("When is my next meeting?")}
                   className="rounded-md bg-gray-800 px-2 py-1 text-xs text-gray-200"
                 >
                   When is my next meeting?

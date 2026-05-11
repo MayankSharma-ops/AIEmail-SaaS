@@ -11,6 +11,8 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    GMAIL_PUBSUB_TOPIC: z.string().optional(),
+    GMAIL_WEBHOOK_SECRET: z.string().optional(),
   },
 
   /**
@@ -29,6 +31,8 @@ export const env = createEnv({
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
+    GMAIL_PUBSUB_TOPIC: process.env.GMAIL_PUBSUB_TOPIC,
+    GMAIL_WEBHOOK_SECRET: process.env.GMAIL_WEBHOOK_SECRET,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

@@ -8,7 +8,7 @@ export const webhooksRouter = createTRPCRouter({
         accountId: z.string()
     })).query(async ({ ctx, input }) => {
         const acc = await authoriseAccountAccess(input.accountId, ctx.auth.userId)
-        const account = new Account(acc.token)
+        const account = await Account.fromStoredAccount(acc)
         return await account.getWebhooks()
     }),
     createWebhook: protectedProcedure.input(z.object({
@@ -16,7 +16,7 @@ export const webhooksRouter = createTRPCRouter({
         notificationUrl: z.string()
     })).mutation(async ({ ctx, input }) => {
         const acc = await authoriseAccountAccess(input.accountId, ctx.auth.userId)
-        const account = new Account(acc.token)
+        const account = await Account.fromStoredAccount(acc)
         return await account.createWebhook('/email/messages', input.notificationUrl)
     }),
     deleteWebhook: protectedProcedure.input(z.object({
@@ -24,7 +24,7 @@ export const webhooksRouter = createTRPCRouter({
         webhookId: z.string()
     })).mutation(async ({ ctx, input }) => {
         const acc = await authoriseAccountAccess(input.accountId, ctx.auth.userId)
-        const account = new Account(acc.token)
+        const account = await Account.fromStoredAccount(acc)
         return await account.deleteWebhook(input.webhookId)
     })
 })

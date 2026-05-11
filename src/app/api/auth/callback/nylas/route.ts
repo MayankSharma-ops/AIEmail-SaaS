@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+
 import { nylas } from "@/lib/nylas";
-import { db } from '@/server/db';
-import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
-    const userId = cookies().get('userId')?.value
+    const { userId } = await auth();
     if (!userId) {
         return NextResponse.json({ error: "No user ID found" }, { status: 400 });
     }
@@ -27,16 +27,6 @@ export async function GET(request: Request) {
     try {
         const response = await nylas.auth.exchangeCodeForToken(codeExchangePayload);
         const { grantId } = response;
-
-        const token = crypto.randomUUID()
-
-        await db.grant.create({
-            data: {
-                id: grantId,
-                token,
-                userId,
-            }
-        })
 
         return NextResponse.json({ message: "OAuth2 flow completed successfully for grant ID: " + grantId });
     } catch (error) {

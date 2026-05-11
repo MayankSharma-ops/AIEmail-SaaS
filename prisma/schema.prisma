@@ -66,7 +66,7 @@ model Account {
 
     binaryIndex Json?
 
-    token        String @unique
+    token        String
     provider     String
     emailAddress String
     name         String

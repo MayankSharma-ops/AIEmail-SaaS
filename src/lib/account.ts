@@ -1,27 +1,93 @@
 import { google } from "googleapis";
 import type { gmail_v1 } from "googleapis";
+import type { Credentials, OAuth2Client } from "google-auth-library";
+
 import { db } from "@/server/db";
 import { syncEmailsToDatabase } from "./sync-to-db";
 import type {
-  EmailMessage,
   EmailAddress,
   EmailAttachment,
+  EmailMessage,
   SyncUpdatedResponse,
 } from "@/lib/types";
 import { getGoogleOAuthClient } from "./google";
+import {
+  encryptGoogleAccountToken,
+  getGoogleCredentialsForAccount,
+  mergeGoogleCredentials,
+} from "./google-account-token";
+import { redis } from "./redis";
 
 const INITIAL_SYNC_MAX_EMAILS = 100;
 const INITIAL_SYNC_PAGE_SIZE = 25;
 
-export default class Account {
-  private token: any;
-  private gmail: gmail_v1.Gmail;
+type StoredGoogleAccount = {
+  id: string;
+  token: string;
+};
 
-  constructor(token: string) {
-    this.token = JSON.parse(token);
-    const oauth2Client = getGoogleOAuthClient();
-    oauth2Client.setCredentials(this.token);
-    this.gmail = google.gmail({ version: "v1", auth: oauth2Client });
+type AccountWebhookRecord = {
+  id: string;
+  resource: string;
+  notificationUrl: string;
+  active: boolean;
+  failSince?: string | null;
+  failDescription?: string | null;
+};
+
+export default class Account {
+  private readonly accountId: string;
+  private token: Credentials;
+  private readonly gmail: gmail_v1.Gmail;
+  private readonly oauth2Client: OAuth2Client;
+
+  private constructor({
+    accountId,
+    token,
+  }: {
+    accountId: string;
+    token: Credentials;
+  }) {
+    this.accountId = accountId;
+    this.token = token;
+    this.oauth2Client = getGoogleOAuthClient();
+    this.oauth2Client.setCredentials(this.token);
+    this.oauth2Client.on("tokens", (tokens) => {
+      void this.persistCredentials(tokens);
+    });
+    this.gmail = google.gmail({ version: "v1", auth: this.oauth2Client });
+  }
+
+  static async fromStoredAccount(account: StoredGoogleAccount) {
+    const token = await getGoogleCredentialsForAccount(account);
+    return new Account({
+      accountId: account.id,
+      token,
+    });
+  }
+
+  private async persistCredentials(next: Credentials) {
+    if (Object.keys(next).length === 0) {
+      return;
+    }
+
+    this.token = mergeGoogleCredentials(this.token, next);
+    this.oauth2Client.setCredentials(this.token);
+
+    await db.account.update({
+      where: { id: this.accountId },
+      data: {
+        token: encryptGoogleAccountToken(this.token),
+      },
+    });
+  }
+
+  private async ensureFreshCredentials() {
+    const accessToken = await this.oauth2Client.getAccessToken();
+
+    if (!accessToken.token && !this.token.access_token) {
+      throw new Error("Google access token unavailable for account.");
+    }
   }
 
   private async parseMessage(
@@ -54,7 +120,7 @@ export default class Account {
 
     const from = parseAddress(fromStr)[0] || { name: "", address: "" };
 
-    let sysLabels: any[] = [];
+    const sysLabels: EmailMessage["sysLabels"] = [];
     if (message.labelIds?.includes("INBOX")) sysLabels.push("inbox");
     if (message.labelIds?.includes("SENT")) sysLabels.push("sent");
     if (message.labelIds?.includes("DRAFT")) sysLabels.push("draft");
@@ -91,7 +157,7 @@ export default class Account {
       receivedAt: new Date(parseInt(message.internalDate || "0")).toISOString(),
       internetMessageId: getHeader("message-id"),
       subject: subject || "(No Subject)",
-      sysLabels: sysLabels as any,
+      sysLabels,
       keywords: [],
       sysClassifications: [],
       sensitivity: "normal",
@@ -121,7 +187,9 @@ export default class Account {
     historyId?: string;
     maxResults?: number;
   }): Promise<SyncUpdatedResponse> {
-    let records: EmailMessage[] = [];
+    await this.ensureFreshCredentials();
+
+    const records: EmailMessage[] = [];
     let nextToken = undefined;
     let nextHistoryId = historyId;
 
@@ -186,9 +254,9 @@ export default class Account {
   }
 
   async performInitialSync() {
+    await this.ensureFreshCredentials();
+
     try {
-      // Capture a baseline historyId for future incremental sync.
-      // This should come from the mailbox profile (not an individual message).
       const profile = await this.gmail.users.getProfile({ userId: "me" });
       const baselineHistoryId = profile.data.historyId || "";
 
@@ -227,23 +295,25 @@ export default class Account {
   }
 
   async syncEmails() {
-    const account = await db.account.findUnique({
-      where: { token: JSON.stringify(this.token) },
-    });
-
-    const accounts = await db.account.findMany();
-    const acc = accounts.find((a) => {
-      try {
-        const t = JSON.parse(a.token);
-        return t.access_token === this.token.access_token;
-      } catch (e) {
-        return false;
+    const lockKey = `sync_lock:${this.accountId}`;
+    if (redis) {
+      const isLocked = await redis.set(lockKey, "1", { nx: true, ex: 120 });
+      if (!isLocked) {
+        console.log(`[account.syncEmails] Sync already in progress for ${this.accountId}, skipping...`);
+        return;
       }
-    });
+    }
 
-    const activeAccount = acc || account;
+    try {
+      const activeAccount = await db.account.findUnique({
+        where: { id: this.accountId },
+        select: {
+          id: true,
+          nextDeltaToken: true,
+        },
+      });
 
-    if (!activeAccount) throw new Error("Invalid token or account");
+    if (!activeAccount) throw new Error("Invalid account");
 
     if (!activeAccount.nextDeltaToken) {
       console.log("No delta token -> running initial sync");
@@ -292,8 +362,6 @@ export default class Account {
       const status = error?.response?.status ?? error?.code;
       const message = String(error?.message ?? "");
 
-      // Gmail returns 404 when the stored historyId is too old/invalid.
-      // In that case, re-run an initial sync to recover.
       if (status === 404 || message.toLowerCase().includes("history")) {
         console.warn(
           "[account.syncEmails] invalid historyId; re-running initial sync",
@@ -321,6 +389,11 @@ export default class Account {
       console.error("[account.syncEmails] delta sync failed", error);
       throw error;
     }
+    } finally {
+      if (redis) {
+        await redis.del(lockKey);
+      }
+    }
   }
 
   async sendEmail({
@@ -346,6 +419,8 @@ export default class Account {
     bcc?: EmailAddress[];
     replyTo?: EmailAddress;
   }) {
+    await this.ensureFreshCredentials();
+
     try {
       const formatAddress = (addr: EmailAddress) =>
         addr.name ? `${addr.name} <${addr.address}>` : addr.address;
@@ -354,7 +429,7 @@ export default class Account {
         `From: ${formatAddress(from)}`,
         `To: ${to.map(formatAddress).join(", ")}`,
         `Subject: ${subject}`,
-        `MIME-Version: 1.0`,
+        "MIME-Version: 1.0",
       ];
 
       if (cc && cc.length)
@@ -389,13 +464,53 @@ export default class Account {
   }
 
   async createSubscription() {
-    console.log("createSubscription is a stub for Gmail Pub/Sub setup.");
-    return { success: true };
+    await this.ensureFreshCredentials();
+    
+    if (!process.env.GMAIL_PUBSUB_TOPIC) {
+      console.warn("GMAIL_PUBSUB_TOPIC is not set. Skipping Pub/Sub setup.");
+      return { success: false };
+    }
+
+    try {
+      const res = await this.gmail.users.watch({
+        userId: "me",
+        requestBody: {
+          labelIds: ["INBOX", "SENT"],
+          labelFilterAction: "include",
+          topicName: process.env.GMAIL_PUBSUB_TOPIC,
+        },
+      });
+      console.log(`[account.createSubscription] Successfully created Pub/Sub watch for account ${this.accountId}:`, res.data);
+      return { success: true, ...res.data };
+    } catch (error) {
+      console.error("[account.createSubscription] Failed to create Pub/Sub subscription:", error);
+      throw error;
+    }
   }
 
-  async getWebhooks() {
+  async getWebhooks(): Promise<{ records: AccountWebhookRecord[] }> {
+    await this.ensureFreshCredentials();
     return {
       records: [],
     };
+  }
+
+  async createWebhook(resource: string, notificationUrl: string) {
+    await this.ensureFreshCredentials();
+    console.warn("createWebhook is not implemented for Gmail.", {
+      accountId: this.accountId,
+      notificationUrl,
+      resource,
+    });
+    return { success: false };
+  }
+
+  async deleteWebhook(webhookId: string) {
+    await this.ensureFreshCredentials();
+    console.warn("deleteWebhook is not implemented for Gmail.", {
+      accountId: this.accountId,
+      webhookId,
+    });
+    return { success: false };
   }
 }

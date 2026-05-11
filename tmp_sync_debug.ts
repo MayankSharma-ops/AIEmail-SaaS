@@ -10,7 +10,10 @@ async function testSync() {
     }
     console.log(`Testing sync for account: ${dbAccount.emailAddress}`);
 
-    const account = new Account(dbAccount.token);
+    const account = await Account.fromStoredAccount({
+        id: dbAccount.id,
+        token: dbAccount.token,
+    });
     
     console.log("Starting initial sync fetch...");
     const response = await account.performInitialSync();
@@ -23,11 +26,15 @@ async function testSync() {
     console.log(`Fetched ${emails.length} emails. Delta token: ${deltaToken}`);
 
     if (emails.length > 0) {
+        const email = emails[0];
+        if (!email) {
+            return;
+        }
+
         console.log("First email preview:");
-        console.log(JSON.stringify(emails[0], null, 2));
+        console.log(JSON.stringify(email, null, 2));
 
         // Let's try inserting the first one manually to see if Prisma fails
-        const email = emails[0];
         try {
             console.log("To stringified:", JSON.stringify(email.to));
             // Just simulate the parsing to check for easy errors ...
