@@ -12,7 +12,6 @@ import { Toaster } from "sonner";
 export const metadata: Metadata = {
   title: "Mailor - Where Email Management Becomes Effortless",
   description: "Experience the next generation of email management with Mailor.",
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
   openGraph: {
     title: "Mailor - Where Email Management Becomes Effortless",
     description: "Experience the next generation of email management with Mailor.",
