@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 import {
@@ -149,6 +150,11 @@ export function Mail({
           )}
         >
           <div className="flex h-full flex-1 flex-col">
+            <div className={cn("flex items-center gap-2 p-4", isCollapsed ? "justify-center" : "")}>
+              <Image src="/logo.png" alt="Mailor Logo" width={32} height={32} className="rounded-full shadow-sm" />
+              {!isCollapsed && <span className="font-bold text-lg">Mailor</span>}
+            </div>
+            <Separator />
             <div
               className={cn(
                 "flex h-[52px] items-center justify-center",
