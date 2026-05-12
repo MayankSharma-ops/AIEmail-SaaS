@@ -3,5 +3,10 @@
 import { getGoogleAuthorizationUrl as getAuthUrl } from "@/lib/google";
 
 export async function getGoogleAuthUrlAction() {
-    return await getAuthUrl();
+    try {
+        return await getAuthUrl();
+    } catch (error) {
+        console.error("Failed to generate Google Auth URL:", error);
+        throw error;
+    }
 }
